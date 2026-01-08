@@ -1,3 +1,261 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>日本購物隨身帳 Cloud v8</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDyZydHIJ__7bzXDt4fCSOuyAW3tdXRf-E",
+            authDomain: "japan-shopping-list.firebaseapp.com",
+            projectId: "japan-shopping-list",
+            storageBucket: "japan-shopping-list.firebasestorage.app",
+            messagingSenderId: "254468058112",
+            appId: "1:254468058112:web:aa2a67ce83b5ae0300bce5",
+            measurementId: "G-54CDBWK2M2"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const itemsCol = collection(db, "shoppingItems");
+
+        window.currentUser = localStorage.getItem('active_user') || '我';
+        window.inputCurrency = 'TWD'; 
+        window.displayCurrency = 'JPY'; 
+        let unsubscribe = null;
+
+        window.switchUser = (user) => {
+            window.currentUser = user;
+            localStorage.setItem('active_user', user);
+            document.querySelectorAll('.user-btn').forEach(btn => {
+                const isActive = btn.dataset.user === user;
+                btn.className = `user-btn px-8 py-2 rounded-full border transition-all font-bold shadow-md ${isActive ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-[#333] text-gray-400 border-[#444]'}`;
+            });
+            initRealtimeUpdates();
+        };
+
+        window.toggleInputCurrency = () => {
+            window.inputCurrency = window.inputCurrency === 'TWD' ? 'JPY' : 'TWD';
+            document.getElementById('currency-toggle-btn').innerText = window.inputCurrency;
+        };
+
+        window.toggleDisplayCurrency = () => {
+            window.displayCurrency = window.displayCurrency === 'JPY' ? 'TWD' : 'JPY';
+            render();
+        };
+
+        function initRealtimeUpdates() {
+            if (unsubscribe) unsubscribe();
+            const q = query(itemsCol, where("user", "==", window.currentUser), orderBy("createdAt", "asc"));
+            unsubscribe = onSnapshot(q, (snapshot) => {
+                window.items = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                render(); 
+            });
+        }
+
+        window.addItem = async () => {
+            const nameInput = document.getElementById('item-name');
+            const priceInput = document.getElementById('item-price');
+            if (nameInput.value) {
+                await addDoc(itemsCol, { 
+                    name: nameInput.value, 
+                    price: parseInt(priceInput.value) || 0,
+                    currency: window.inputCurrency,
+                    checked: false, 
+                    user: window.currentUser,
+                    createdAt: Date.now() 
+                });
+                nameInput.value = ''; priceInput.value = '';
+            }
+        };
+
+        window.updatePrice = async (id, newPrice) => {
+            await updateDoc(doc(db, "shoppingItems", id), { price: parseInt(newPrice) || 0 });
+        };
+
+        window.changeItemCurrency = async (id, currentCurrency) => {
+            const newCurrency = currentCurrency === 'TWD' ? 'JPY' : 'TWD';
+            await updateDoc(doc(db, "shoppingItems", id), { currency: newCurrency });
+        };
+
+        window.toggleCheck = async (id, currentStatus) => {
+            await updateDoc(doc(db, "shoppingItems", id), { checked: !currentStatus });
+        };
+
+        window.removeItem = async (id) => {
+            if(confirm('確定移除？')) await deleteDoc(doc(db, "shoppingItems", id));
+        };
+
+        window.addEventListener('DOMContentLoaded', () => switchUser(window.currentUser));
+    </script>
+    <style>
+        :root { --bg: #0a0a0a; --card: #171717; --text: #ffffff; --accent: #818cf8; --nav: #1f1f1f; }
+        body { background-color: var(--bg); color: var(--text); transition: 0.3s; min-height: 100vh; font-family: sans-serif; }
+        
+        .gray-header { background-color: var(--nav); padding: 16px 10px; border-bottom: 1px solid #2a2a2a; }
+
+        /* 卡片樣式優化 */
+        .card { background-color: var(--card); border-radius: 1.25rem; border: 1px solid #2a2a2a; transition: all 0.2s ease; }
+        .card-checked { border-color: var(--accent); border-left: 6px solid var(--accent); background-color: #1e1e2e; }
+
+        .tab-btn { flex: 1; padding: 14px; font-weight: bold; opacity: 0.4; border-bottom: 3px solid transparent; transition: 0.3s; color: white; }
+        .tab-btn.active { opacity: 1; border-bottom-color: var(--accent); color: var(--accent); }
+        
+        .checkbox-custom { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #444; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .checkbox-custom.checked { background: var(--accent); border-color: var(--accent); }
+        .checkbox-custom.checked::after { content: '✓'; color: white; font-size: 14px; font-weight: bold; }
+        
+        .price-input { background: #262626; border-radius: 8px; padding: 4px 8px; width: 100px; text-align: right; outline: none; border: 1px solid #333; color: white; font-weight: bold; font-family: monospace; }
+        .price-input:focus { border-color: var(--accent); }
+        
+        .curr-swap-btn { font-size: 10px; background: #333; color: var(--accent); padding: 2px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #444; transition: 0.2s; }
+        .curr-swap-btn:active { transform: scale(0.9); }
+
+        .fixed-bottom { position: fixed; bottom: 0; left: 0; right: 0; background: #141414; border-top: 1px solid #2a2a2a; padding-bottom: env(safe-area-inset-bottom); z-index: 100; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body class="pb-80">
+
+    <div class="gray-header sticky top-0 z-50 shadow-md">
+        <div class="flex gap-4 justify-center">
+            <button onclick="switchUser('我')" data-user="我" class="user-btn">我</button>
+            <button onclick="switchUser('Mina')" data-user="Mina" class="user-btn">Mina</button>
+        </div>
+    </div>
+
+    <nav class="flex bg-[#141414] sticky top-[65px] z-40 border-b border-[#2a2a2a]">
+        <button onclick="switchPage('list')" id="tab-list" class="tab-btn active">📝 願望清單</button>
+        <button onclick="switchPage('calc')" id="tab-calc" class="tab-btn">💰 統計結帳</button>
+    </nav>
+
+    <div class="max-w-md mx-auto p-4">
+        <div id="page-list">
+            <div id="wish-list-container" class="space-y-4 mt-2">連線中...</div>
+        </div>
+
+        <div id="page-calc" class="hidden">
+            <div class="flex justify-end mb-2">
+                <button onclick="toggleDisplayCurrency()" class="text-[10px] bg-indigo-900/30 text-indigo-300 px-3 py-1 rounded-full font-bold border border-indigo-500/30">
+                    🔄 切換主幣別：<span id="display-curr-label">JPY</span>
+                </button>
+            </div>
+            <div class="card p-6 mb-6 shadow-xl bg-gradient-to-br from-[#1e1e2e] to-[#0f172a] !text-white border-none">
+                <div class="flex justify-between items-end">
+                    <div>
+                        <div class="text-xs opacity-70 uppercase font-bold tracking-widest"><span id="main-curr-name">JPY</span> Total</div>
+                        <div class="text-4xl font-mono font-bold"><span id="symbol-main">¥</span> <span id="total-main">0</span></div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs opacity-70"><span id="sub-curr-name">TWD</span></div>
+                        <div class="text-xl font-mono font-semibold"><span id="symbol-sub">$</span> <span id="total-sub">0</span></div>
+                    </div>
+                </div>
+            </div>
+            <div id="calc-list-container" class="card p-4 space-y-3"></div>
+        </div>
+    </div>
+
+    <div class="fixed-bottom p-4">
+        <div class="max-w-md mx-auto space-y-4">
+            <div class="flex gap-2 items-center">
+                <input id="item-name" type="text" placeholder="品名" class="flex-[1.5] p-4 rounded-2xl bg-[#262626] outline-none text-white focus:ring-1 ring-indigo-400">
+                <div class="flex flex-[2] bg-[#262626] rounded-2xl overflow-hidden items-center border border-[#333] focus-within:border-indigo-400">
+                    <input id="item-price" type="number" placeholder="金額" class="w-full p-4 bg-transparent outline-none text-right font-mono text-white">
+                    <button onclick="toggleInputCurrency()" id="currency-toggle-btn" class="px-5 py-4 font-black text-indigo-400 border-l border-[#333] hover:bg-[#333]">TWD</button>
+                </div>
+                <button onclick="addItem()" class="bg-indigo-600 text-white p-4 rounded-2xl font-bold active:scale-95 transition-transform shadow-lg shadow-indigo-900/20">＋</button>
+            </div>
+            <div class="flex justify-between items-center pt-2 border-t border-[#2a2a2a]">
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold text-indigo-400 uppercase">Rate 1 JPY =</span>
+                    <input id="rate-input" type="number" step="0.0001" value="0.22" onchange="render()" class="w-16 bg-transparent border-b border-indigo-500/50 font-mono text-center outline-none text-white">
+                    <span class="text-[10px] text-gray-500">TWD</span>
+                </div>
+                <div class="text-[10px] opacity-20 font-mono">v8.0 CLOUD SYNC</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.items = [];
+        function switchPage(page) {
+            document.getElementById('page-list').classList.toggle('hidden', page !== 'list');
+            document.getElementById('page-calc').classList.toggle('hidden', page !== 'calc');
+            document.getElementById('tab-list').className = `tab-btn ${page === 'list' ? 'active' : ''}`;
+            document.getElementById('tab-calc').className = `tab-btn ${page === 'calc' ? 'active' : ''}`;
+        }
+        
+        function render() {
+            const wishList = document.getElementById('wish-list-container');
+            const calcList = document.getElementById('calc-list-container');
+            const rate = parseFloat(document.getElementById('rate-input').value) || 0.22;
+            wishList.innerHTML = ''; calcList.innerHTML = '';
+            
+            let sumJPY = 0; let sumTWD = 0;
+
+            window.items.forEach((item) => {
+                let twd, jpy;
+                const isJPY = item.currency === 'JPY';
+                if (isJPY) {
+                    jpy = item.price || 0;
+                    twd = Math.round(jpy * rate);
+                } else {
+                    twd = item.price || 0;
+                    jpy = Math.round(twd / rate);
+                }
+
+                const itemDiv = document.createElement('div');
+                itemDiv.className = `card p-5 flex justify-between items-center ${item.checked ? 'card-checked' : ''}`;
+                itemDiv.innerHTML = `
+                    <div class="flex items-center gap-4 overflow-hidden">
+                        <div onclick="toggleCheck('${item.id}', ${item.checked})" class="checkbox-custom ${item.checked ? 'checked' : ''}"></div>
+                        <div class="truncate">
+                            <div class="font-bold text-lg text-white">${item.name}</div>
+                            <div class="text-[11px] font-mono text-gray-400 mt-0.5">
+                                ${isJPY ? `¥${jpy.toLocaleString()} → $${twd.toLocaleString()}` : `$${twd.toLocaleString()} → ¥${jpy.toLocaleString()}`}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="text-right">
+                            <input type="number" value="${item.price}" onchange="updatePrice('${item.id}', this.value)" class="price-input">
+                            <div class="mt-1.5"><button onclick="changeItemCurrency('${item.id}', '${item.currency}')" class="curr-swap-btn">${item.currency || 'TWD'}</button></div>
+                        </div>
+                        <button onclick="removeItem('${item.id}')" class="text-gray-600 hover:text-red-500 px-1 text-lg">✕</button>
+                    </div>`;
+                wishList.appendChild(itemDiv);
+
+                if (item.checked) {
+                    sumJPY += jpy; sumTWD += twd;
+                    const mainVal = window.displayCurrency === 'JPY' ? jpy : twd;
+                    const subVal = window.displayCurrency === 'JPY' ? twd : jpy;
+                    calcList.innerHTML += `
+                        <div class="flex justify-between items-center border-b border-[#2a2a2a] pb-3 last:border-0">
+                            <span class="font-medium text-gray-200">${item.name}</span>
+                            <div class="text-right">
+                                <div class="font-mono text-indigo-400 font-bold">${window.displayCurrency === 'JPY' ? '¥' : '$'}${mainVal.toLocaleString()}</div>
+                                <div class="text-[10px] opacity-40 font-mono">${window.displayCurrency === 'JPY' ? '$' : '¥'}${subVal.toLocaleString()}</div>
+                            </div>
+                        </div>`;
+                }
+            });
+
+            const isMainJPY = window.displayCurrency === 'JPY';
+            document.getElementById('display-curr-label').innerText = window.displayCurrency;
+            document.getElementById('main-curr-name').innerText = window.displayCurrency;
+            document.getElementById('sub-curr-name').innerText = isMainJPY ? 'TWD' : 'JPY';
+            document.getElementById('total-main').innerText = isMainJPY ? sumJPY.toLocaleString() : sumTWD.toLocaleString();
+            document.getElementById('total-sub').innerText = isMainJPY ? sumTWD.toLocaleString() : sumJPY.toLocaleString();
+            document.getElementById('symbol-main').innerText = isMainJPY ? '¥' : '$';
+            document.getElementById('symbol-sub').innerText = isMainJPY ? '$' : '¥';
+
+            if (calcList.innerHTML === '') calcList.innerHTML = '<div class="text-center py-10 opacity-20 italic">尚未勾選品項</div>';
+        }
+    </script>
+</body>
+</html>
