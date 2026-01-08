@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>日本購物隨身帳 v11 - Stable</title>
+    <title>日本購物隨身帳 v11.1 - Fix</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -60,10 +60,18 @@
             }
         };
 
+        // --- 修正後的名稱儲存函式 ---
         window.saveName = async (id) => {
-            const newName = document.getElementById(`input-name-${id}`).value;
+            const inputField = document.getElementById(`input-name-${id}`);
+            const newName = inputField ? inputField.value.trim() : "";
             if (newName) {
-                await updateDoc(doc(db, "shoppingItems", id), { name: newName });
+                try {
+                    const itemRef = doc(db, "shoppingItems", id);
+                    await updateDoc(itemRef, { name: newName });
+                    // 立即隱藏編輯框防止重複點擊
+                    document.getElementById(`edit-name-${id}`).style.display = 'none';
+                    document.getElementById(`display-name-${id}`).style.display = 'block';
+                } catch (e) { console.error(e); }
             }
         };
 
@@ -87,7 +95,6 @@
             document.getElementById('lightbox').style.display = 'none';
         };
 
-        // 其他狀態更新
         window.updatePrice = async (id, val) => await updateDoc(doc(db, "shoppingItems", id), { price: parseInt(val) || 0 });
         window.changeItemCurrency = async (id, curr) => await updateDoc(doc(db, "shoppingItems", id), { currency: curr === 'TWD' ? 'JPY' : 'TWD' });
         window.toggleCheck = async (id, status) => await updateDoc(doc(db, "shoppingItems", id), { checked: !status });
@@ -175,7 +182,7 @@
                     <input id="rate-input" type="number" step="0.0001" value="0.22" onchange="render()" class="w-16 bg-transparent border-b border-indigo-500/50 font-mono text-center text-white outline-none">
                     <span class="text-[10px] text-gray-500">TWD</span>
                 </div>
-                <div class="text-[10px] opacity-20 font-mono">v11.0 FINAL STABLE</div>
+                <div class="text-[10px] opacity-20 font-mono italic">v11.1 FIXED</div>
             </div>
         </div>
     </div>
@@ -205,7 +212,6 @@
                 const itemDiv = document.createElement('div');
                 itemDiv.className = `card p-4 flex justify-between items-center ${item.checked ? 'card-checked' : ''}`;
                 
-                // 圖片 HTML 處理
                 const imgContent = item.imageUrl 
                     ? `<img src="${item.imageUrl}" onclick="event.stopPropagation(); window.openLightbox('${item.imageUrl}')">`
                     : `<div class="flex h-full items-center justify-center text-xs opacity-20" onclick="document.getElementById('file-${item.id}').click()">📷</div>`;
@@ -219,13 +225,13 @@
                             <input type="file" id="file-${item.id}" class="hidden" accept="image/*" onchange="uploadImage('${item.id}', this.files[0])">
                         </div>
                         <div class="truncate flex-1">
-                            <div class="relative group">
+                            <div class="relative">
                                 <div id="display-name-${item.id}" onclick="document.getElementById('display-name-${item.id}').style.display='none'; document.getElementById('edit-name-${item.id}').style.display='flex'; document.getElementById('input-name-${item.id}').focus();" class="font-bold text-base text-white leading-tight cursor-pointer">
                                     ${item.name} <span class="text-[9px] opacity-20">✎</span>
                                 </div>
                                 <div id="edit-name-${item.id}" style="display:none;" class="flex gap-1">
-                                    <input id="input-name-${item.id}" type="text" value="${item.name}" class="bg-[#2a2a2a] border border-indigo-500 rounded px-2 py-1 text-sm w-full" onkeydown="if(event.key==='Enter') window.saveName('${item.id}')">
-                                    <button onclick="window.saveName('${item.id}')" class="text-xs text-indigo-400 font-bold">OK</button>
+                                    <input id="input-name-${item.id}" type="text" value="${item.name}" class="bg-[#2a2a2a] border border-indigo-500 rounded px-2 py-1 text-sm w-full text-white outline-none" onkeydown="if(event.key==='Enter') window.saveName('${item.id}')">
+                                    <button onclick="window.saveName('${item.id}')" class="bg-indigo-600 px-2 py-1 rounded text-[10px] text-white font-bold">OK</button>
                                 </div>
                             </div>
                             <div class="text-[10px] font-mono text-gray-500 mt-1 uppercase">
@@ -236,7 +242,7 @@
                     <div class="flex items-center gap-2 pl-2">
                         <div class="text-right">
                             <input type="number" value="${item.price}" onchange="updatePrice('${item.id}', this.value)" class="price-input">
-                            <div class="mt-1"><button onclick="changeItemCurrency('${item.id}', '${item.currency}')" class="curr-swap-btn text-[9px] bg-[#333] px-2 py-0.5 rounded border border-[#444] text-indigo-400 font-bold uppercase">${item.currency || 'TWD'}</button></div>
+                            <div class="mt-1"><button onclick="changeItemCurrency('${item.id}', '${item.currency}')" class="text-[9px] bg-[#333] px-2 py-0.5 rounded border border-[#444] text-indigo-400 font-bold uppercase">${item.currency || 'TWD'}</button></div>
                         </div>
                         <button onclick="removeItem('${item.id}')" class="text-gray-700 px-1 text-lg">✕</button>
                     </div>`;
@@ -251,7 +257,7 @@
                             <span class="font-medium text-gray-200 text-sm">${item.name}</span>
                             <div class="text-right">
                                 <div class="font-mono text-indigo-400 font-bold text-sm">${window.displayCurrency === 'JPY' ? '¥' : '$'}${mainVal.toLocaleString()}</div>
-                                <div class="text-[10px] opacity-30 font-mono">${window.displayCurrency === 'JPY' ? '$' : '¥'}${subVal.toLocaleString()}</div>
+                                <div class="text-[10px] opacity-40 font-mono">${window.displayCurrency === 'JPY' ? '$' : '¥'}${subVal.toLocaleString()}</div>
                             </div>
                         </div>`;
                 }
