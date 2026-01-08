@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>日本購物隨身帳 Cloud v10</title>
+    <title>日本購物隨身帳 v11 - Stable</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -30,6 +30,7 @@
         window.displayCurrency = 'JPY'; 
         let unsubscribe = null;
 
+        // 初始化與監聽
         window.switchUser = (user) => {
             window.currentUser = user;
             localStorage.setItem('active_user', user);
@@ -49,6 +50,7 @@
             });
         }
 
+        // 核心操作
         window.addItem = async () => {
             const name = document.getElementById('item-name').value;
             const price = parseInt(document.getElementById('item-price').value) || 0;
@@ -56,13 +58,6 @@
                 await addDoc(itemsCol, { name, price, currency: window.inputCurrency, checked: false, user: window.currentUser, createdAt: Date.now() });
                 document.getElementById('item-name').value = ''; document.getElementById('item-price').value = '';
             }
-        };
-
-        // 編輯名稱功能
-        window.editName = (id) => {
-            document.getElementById(`name-display-${id}`).classList.add('hidden');
-            document.getElementById(`name-edit-${id}`).classList.remove('hidden');
-            document.getElementById(`input-name-${id}`).focus();
         };
 
         window.saveName = async (id) => {
@@ -80,21 +75,19 @@
             await updateDoc(doc(db, "shoppingItems", id), { imageUrl: url });
         };
 
-        // 圖片放大功能
+        // 燈箱控制
         window.openLightbox = (url) => {
-            const lightbox = document.getElementById('lightbox');
-            const lightboxImg = document.getElementById('lightbox-img');
-            lightboxImg.src = url;
-            lightbox.classList.remove('hidden');
-            lightbox.classList.add('flex');
+            const lb = document.getElementById('lightbox');
+            const lbImg = document.getElementById('lightbox-img');
+            lbImg.src = url;
+            lb.style.display = 'flex';
         };
 
         window.closeLightbox = () => {
-            const lightbox = document.getElementById('lightbox');
-            lightbox.classList.add('hidden');
-            lightbox.classList.remove('flex');
+            document.getElementById('lightbox').style.display = 'none';
         };
 
+        // 其他狀態更新
         window.updatePrice = async (id, val) => await updateDoc(doc(db, "shoppingItems", id), { price: parseInt(val) || 0 });
         window.changeItemCurrency = async (id, curr) => await updateDoc(doc(db, "shoppingItems", id), { currency: curr === 'TWD' ? 'JPY' : 'TWD' });
         window.toggleCheck = async (id, status) => await updateDoc(doc(db, "shoppingItems", id), { checked: !status });
@@ -119,32 +112,20 @@
         .checkbox-custom { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #444; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .checkbox-custom.checked { background: var(--accent); border-color: var(--accent); }
         .checkbox-custom.checked::after { content: '✓'; color: white; font-size: 14px; font-weight: bold; }
-        
-        /* 圖片樣式 */
-        .item-img-box { width: 55px; height: 55px; border-radius: 10px; background: #262626; overflow: hidden; flex-shrink: 0; border: 1px solid #333; position: relative; }
+        .item-img-box { width: 55px; height: 55px; border-radius: 10px; background: #262626; overflow: hidden; flex-shrink: 0; border: 1px solid #333; position: relative; cursor: zoom-in; }
         .item-img-box img { width: 100%; height: 100%; object-fit: cover; }
-        .img-overlay-btn { position: absolute; bottom: 0; right: 0; background: rgba(0,0,0,0.6); color: white; font-size: 10px; padding: 2px; }
-
-        .price-input, .name-edit-input { background: #262626; border-radius: 8px; padding: 4px 8px; outline: none; border: 1px solid #333; color: white; font-weight: bold; }
-        .name-edit-input { width: 100%; font-size: 16px; }
-        
-        .curr-swap-btn { font-size: 10px; background: #333; color: var(--accent); padding: 2px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #444; }
+        .price-input { background: #262626; border-radius: 8px; padding: 4px 8px; width: 90px; text-align: right; outline: none; border: 1px solid #333; color: white; font-weight: bold; font-family: monospace; }
         .fixed-bottom { position: fixed; bottom: 0; left: 0; right: 0; background: #141414; border-top: 1px solid #2a2a2a; padding-bottom: env(safe-area-inset-bottom); z-index: 100; }
-        
-        /* 燈箱樣式 */
-        #lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 200; align-items: center; justify-content: center; display: none; }
-        #lightbox img { max-width: 90%; max-height: 80%; border-radius: 10px; box-shadow: 0 0 30px rgba(0,0,0,0.5); }
-
-        .hidden { display: none !important; }
+        .img-edit-overlay { position: absolute; bottom: 0; right: 0; background: rgba(0,0,0,0.7); font-size: 10px; padding: 1px 4px; border-top-left-radius: 6px; color: var(--accent); }
     </style>
 </head>
 <body class="pb-80">
 
-    <div id="lightbox" onclick="closeLightbox()">
-        <img id="lightbox-img" src="" alt="放大圖">
+    <div id="lightbox" onclick="closeLightbox()" style="position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 200; align-items: center; justify-content: center; display: none;">
+        <img id="lightbox-img" src="" alt="Zoomed" style="max-width: 95%; max-height: 85%; border-radius: 10px; box-shadow: 0 0 40px rgba(0,0,0,0.8);">
     </div>
 
-    <div class="gray-header sticky top-0 z-50 shadow-md">
+    <div class="gray-header sticky top-0 z-50">
         <div class="flex gap-4 justify-center">
             <button onclick="switchUser('我')" data-user="我" class="user-btn">我</button>
             <button onclick="switchUser('Mina')" data-user="Mina" class="user-btn">Mina</button>
@@ -161,14 +142,14 @@
             <div id="wish-list-container" class="space-y-4 mt-2">連線中...</div>
         </div>
 
-        <div id="page-calc" class="hidden">
+        <div id="page-calc" class="hidden" style="display:none">
             <div class="flex justify-end mb-2">
                 <button onclick="toggleDisplayCurrency()" class="text-[10px] bg-indigo-900/30 text-indigo-300 px-3 py-1 rounded-full font-bold border border-indigo-500/30">🔄 切換幣別：<span id="display-curr-label">JPY</span></button>
             </div>
-            <div class="card p-6 mb-6 shadow-xl bg-gradient-to-br from-[#1e1e2e] to-[#0f172a] !text-white border-none">
+            <div class="card p-6 mb-6 bg-gradient-to-br from-[#1e1e2e] to-[#0f172a] !text-white border-none shadow-2xl">
                 <div class="flex justify-between items-end">
                     <div>
-                        <div class="text-xs opacity-70 uppercase font-bold tracking-widest"><span id="main-curr-name">JPY</span> Total</div>
+                        <div class="text-xs opacity-70 font-bold uppercase tracking-widest"><span id="main-curr-name">JPY</span> Total</div>
                         <div class="text-4xl font-mono font-bold"><span id="symbol-main">¥</span> <span id="total-main">0</span></div>
                     </div>
                     <div class="text-right"><div class="text-xs opacity-70"><span id="sub-curr-name">TWD</span></div><div class="text-xl font-mono font-semibold"><span id="symbol-sub">$</span> <span id="total-sub">0</span></div></div>
@@ -182,18 +163,19 @@
         <div class="max-w-md mx-auto space-y-4">
             <div class="flex gap-2 items-center">
                 <input id="item-name" type="text" placeholder="品名" class="flex-[1.2] p-4 rounded-2xl bg-[#262626] outline-none text-white focus:ring-1 ring-indigo-400">
-                <div class="flex flex-[1.8] bg-[#262626] rounded-2xl overflow-hidden items-center border border-[#333] focus-within:border-indigo-400">
+                <div class="flex flex-[1.8] bg-[#262626] rounded-2xl overflow-hidden items-center border border-[#333]">
                     <input id="item-price" type="number" placeholder="金額" class="w-full p-4 bg-transparent outline-none text-right font-mono text-white">
                     <button onclick="toggleInputCurrency()" id="currency-toggle-btn" class="px-4 py-4 font-black text-indigo-400 border-l border-[#333]">TWD</button>
                 </div>
-                <button onclick="addItem()" class="bg-indigo-600 text-white p-4 rounded-2xl font-bold active:scale-95 transition shadow-lg">＋</button>
+                <button onclick="addItem()" class="bg-indigo-600 text-white p-4 rounded-2xl font-bold active:scale-95 transition">＋</button>
             </div>
             <div class="flex justify-between items-center pt-2 border-t border-[#2a2a2a]">
                 <div class="flex items-center gap-2">
-                    <span class="text-[10px] font-bold text-indigo-400">Rate 1 JPY =</span>
+                    <span class="text-[10px] font-bold text-indigo-400 uppercase">Rate 1 JPY =</span>
                     <input id="rate-input" type="number" step="0.0001" value="0.22" onchange="render()" class="w-16 bg-transparent border-b border-indigo-500/50 font-mono text-center text-white outline-none">
+                    <span class="text-[10px] text-gray-500">TWD</span>
                 </div>
-                <div class="text-[10px] opacity-20 font-mono italic">v10.0 EDITABLE</div>
+                <div class="text-[10px] opacity-20 font-mono">v11.0 FINAL STABLE</div>
             </div>
         </div>
     </div>
@@ -201,11 +183,12 @@
     <script>
         window.items = [];
         function switchPage(page) {
-            document.getElementById('page-list').classList.toggle('hidden', page !== 'list');
-            document.getElementById('page-calc').classList.toggle('hidden', page !== 'calc');
+            document.getElementById('page-list').style.display = (page === 'list' ? 'block' : 'none');
+            document.getElementById('page-calc').style.display = (page === 'calc' ? 'block' : 'none');
             document.getElementById('tab-list').className = `tab-btn ${page === 'list' ? 'active' : ''}`;
             document.getElementById('tab-calc').className = `tab-btn ${page === 'calc' ? 'active' : ''}`;
         }
+        
         function render() {
             const wishList = document.getElementById('wish-list-container');
             const calcList = document.getElementById('calc-list-container');
@@ -215,66 +198,73 @@
 
             window.items.forEach((item) => {
                 let twd, jpy;
-                if (item.currency === 'JPY') { jpy = item.price || 0; twd = Math.round(jpy * rate); }
+                const isJPY = item.currency === 'JPY';
+                if (isJPY) { jpy = item.price || 0; twd = Math.round(jpy * rate); }
                 else { twd = item.price || 0; jpy = Math.round(twd / rate); }
 
                 const itemDiv = document.createElement('div');
                 itemDiv.className = `card p-4 flex justify-between items-center ${item.checked ? 'card-checked' : ''}`;
+                
+                // 圖片 HTML 處理
+                const imgContent = item.imageUrl 
+                    ? `<img src="${item.imageUrl}" onclick="event.stopPropagation(); window.openLightbox('${item.imageUrl}')">`
+                    : `<div class="flex h-full items-center justify-center text-xs opacity-20" onclick="document.getElementById('file-${item.id}').click()">📷</div>`;
+
                 itemDiv.innerHTML = `
                     <div class="flex items-center gap-3 overflow-hidden flex-1">
                         <div onclick="toggleCheck('${item.id}', ${item.checked})" class="checkbox-custom ${item.checked ? 'checked' : ''}"></div>
-                        
-                        <div class="flex items-center gap-2 overflow-hidden">
-                            <div class="item-img-box">
-                                ${item.imageUrl ? `<img src="${item.imageUrl}" onclick="openLightbox('${item.imageUrl}')">` : `<div class="flex h-full items-center justify-center text-xs opacity-20" onclick="document.getElementById('file-${item.id}').click()">📷</div>`}
-                                <div class="img-overlay-btn" onclick="document.getElementById('file-${item.id}').click()">✎</div>
-                                <input type="file" id="file-${item.id}" class="hidden" accept="image/*" onchange="uploadImage('${item.id}', this.files[0])">
+                        <div class="item-img-box">
+                            ${imgContent}
+                            <div class="img-edit-overlay" onclick="event.stopPropagation(); document.getElementById('file-${item.id}').click()">✎</div>
+                            <input type="file" id="file-${item.id}" class="hidden" accept="image/*" onchange="uploadImage('${item.id}', this.files[0])">
+                        </div>
+                        <div class="truncate flex-1">
+                            <div class="relative group">
+                                <div id="display-name-${item.id}" onclick="document.getElementById('display-name-${item.id}').style.display='none'; document.getElementById('edit-name-${item.id}').style.display='flex'; document.getElementById('input-name-${item.id}').focus();" class="font-bold text-base text-white leading-tight cursor-pointer">
+                                    ${item.name} <span class="text-[9px] opacity-20">✎</span>
+                                </div>
+                                <div id="edit-name-${item.id}" style="display:none;" class="flex gap-1">
+                                    <input id="input-name-${item.id}" type="text" value="${item.name}" class="bg-[#2a2a2a] border border-indigo-500 rounded px-2 py-1 text-sm w-full" onkeydown="if(event.key==='Enter') window.saveName('${item.id}')">
+                                    <button onclick="window.saveName('${item.id}')" class="text-xs text-indigo-400 font-bold">OK</button>
+                                </div>
                             </div>
-
-                            <div class="truncate flex-1">
-                                <div id="name-display-${item.id}" onclick="editName('${item.id}')" class="font-bold text-base text-white leading-tight cursor-pointer hover:text-indigo-300">
-                                    ${item.name} <span class="text-[10px] opacity-30 ml-1">✎</span>
-                                </div>
-                                <div id="name-edit-${item.id}" class="hidden flex gap-1">
-                                    <input id="input-name-${item.id}" type="text" value="${item.name}" class="name-edit-input" onkeydown="if(event.key==='Enter') saveName('${item.id}')">
-                                    <button onclick="saveName('${item.id}')" class="text-green-400">✅</button>
-                                </div>
-                                <div class="text-[10px] font-mono text-gray-400 mt-1">
-                                    ${item.currency === 'JPY' ? `¥${jpy.toLocaleString()} → $${twd.toLocaleString()}` : `$${twd.toLocaleString()} → ¥${jpy.toLocaleString()}`}
-                                </div>
+                            <div class="text-[10px] font-mono text-gray-500 mt-1 uppercase">
+                                ${isJPY ? `¥${jpy.toLocaleString()} → $${twd.toLocaleString()}` : `$${twd.toLocaleString()} → ¥${jpy.toLocaleString()}`}
                             </div>
                         </div>
                     </div>
                     <div class="flex items-center gap-2 pl-2">
                         <div class="text-right">
-                            <input type="number" value="${item.price}" onchange="updatePrice('${item.id}', this.value)" class="price-input font-bold w-[80px]">
-                            <div class="mt-1"><button onclick="changeItemCurrency('${item.id}', '${item.currency}')" class="curr-swap-btn">${item.currency || 'TWD'}</button></div>
+                            <input type="number" value="${item.price}" onchange="updatePrice('${item.id}', this.value)" class="price-input">
+                            <div class="mt-1"><button onclick="changeItemCurrency('${item.id}', '${item.currency}')" class="curr-swap-btn text-[9px] bg-[#333] px-2 py-0.5 rounded border border-[#444] text-indigo-400 font-bold uppercase">${item.currency || 'TWD'}</button></div>
                         </div>
-                        <button onclick="removeItem('${item.id}')" class="text-gray-600 px-1 text-lg">✕</button>
+                        <button onclick="removeItem('${item.id}')" class="text-gray-700 px-1 text-lg">✕</button>
                     </div>`;
+                
                 wishList.appendChild(itemDiv);
                 if (item.checked) {
                     sumJPY += jpy; sumTWD += twd;
-                    const main = window.displayCurrency === 'JPY' ? jpy : twd;
-                    const sub = window.displayCurrency === 'JPY' ? twd : jpy;
+                    const mainVal = window.displayCurrency === 'JPY' ? jpy : twd;
+                    const subVal = window.displayCurrency === 'JPY' ? twd : jpy;
                     calcList.innerHTML += `
                         <div class="flex justify-between items-center border-b border-[#2a2a2a] pb-3 last:border-0">
                             <span class="font-medium text-gray-200 text-sm">${item.name}</span>
                             <div class="text-right">
-                                <div class="font-mono text-indigo-400 font-bold text-sm">${window.displayCurrency === 'JPY' ? '¥' : '$'}${main.toLocaleString()}</div>
-                                <div class="text-[10px] opacity-40 font-mono">${window.displayCurrency === 'JPY' ? '$' : '¥'}${sub.toLocaleString()}</div>
+                                <div class="font-mono text-indigo-400 font-bold text-sm">${window.displayCurrency === 'JPY' ? '¥' : '$'}${mainVal.toLocaleString()}</div>
+                                <div class="text-[10px] opacity-30 font-mono">${window.displayCurrency === 'JPY' ? '$' : '¥'}${subVal.toLocaleString()}</div>
                             </div>
                         </div>`;
                 }
             });
-            const isJPY = window.displayCurrency === 'JPY';
+
+            const isMainJPY = window.displayCurrency === 'JPY';
             document.getElementById('display-curr-label').innerText = window.displayCurrency;
             document.getElementById('main-curr-name').innerText = window.displayCurrency;
-            document.getElementById('sub-curr-name').innerText = isJPY ? 'TWD' : 'JPY';
-            document.getElementById('total-main').innerText = isJPY ? sumJPY.toLocaleString() : sumTWD.toLocaleString();
-            document.getElementById('total-sub').innerText = isJPY ? sumTWD.toLocaleString() : sumJPY.toLocaleString();
-            document.getElementById('symbol-main').innerText = isJPY ? '¥' : '$';
-            document.getElementById('symbol-sub').innerText = isJPY ? '$' : '¥';
+            document.getElementById('sub-curr-name').innerText = isMainJPY ? 'TWD' : 'JPY';
+            document.getElementById('total-main').innerText = isMainJPY ? sumJPY.toLocaleString() : sumTWD.toLocaleString();
+            document.getElementById('total-sub').innerText = isMainJPY ? sumTWD.toLocaleString() : sumJPY.toLocaleString();
+            document.getElementById('symbol-main').innerText = isMainJPY ? '¥' : '$';
+            document.getElementById('symbol-sub').innerText = isMainJPY ? '$' : '¥';
             if (calcList.innerHTML === '') calcList.innerHTML = '<div class="text-center py-10 opacity-20 italic">尚未勾選品項</div>';
         }
     </script>
