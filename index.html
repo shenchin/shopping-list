@@ -1,278 +1,261 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
-<html>
+<!DOCTYPE html>
+<html lang="zh-TW">
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <meta http-equiv="Content-Style-Type" content="text/css">
-  <title></title>
-  <meta name="Generator" content="Cocoa HTML Writer">
-  <meta name="CocoaVersion" content="2685.2">
-  <style type="text/css">
-    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Times; -webkit-text-stroke: #000000}
-    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Times; -webkit-text-stroke: #000000; min-height: 14.0px}
-    span.s1 {font-kerning: none}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>日本購物隨身帳 Cloud v8</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDyZydHIJ__7bzXDt4fCSOuyAW3tdXRf-E",
+            authDomain: "japan-shopping-list.firebaseapp.com",
+            projectId: "japan-shopping-list",
+            storageBucket: "japan-shopping-list.firebasestorage.app",
+            messagingSenderId: "254468058112",
+            appId: "1:254468058112:web:aa2a67ce83b5ae0300bce5",
+            measurementId: "G-54CDBWK2M2"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const itemsCol = collection(db, "shoppingItems");
+
+        window.currentUser = localStorage.getItem('active_user') || '我';
+        window.inputCurrency = 'TWD'; 
+        window.displayCurrency = 'JPY'; 
+        let unsubscribe = null;
+
+        window.switchUser = (user) => {
+            window.currentUser = user;
+            localStorage.setItem('active_user', user);
+            document.querySelectorAll('.user-btn').forEach(btn => {
+                const isActive = btn.dataset.user === user;
+                btn.className = `user-btn px-8 py-2 rounded-full border transition-all font-bold shadow-md ${isActive ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-[#333] text-gray-400 border-[#444]'}`;
+            });
+            initRealtimeUpdates();
+        };
+
+        window.toggleInputCurrency = () => {
+            window.inputCurrency = window.inputCurrency === 'TWD' ? 'JPY' : 'TWD';
+            document.getElementById('currency-toggle-btn').innerText = window.inputCurrency;
+        };
+
+        window.toggleDisplayCurrency = () => {
+            window.displayCurrency = window.displayCurrency === 'JPY' ? 'TWD' : 'JPY';
+            render();
+        };
+
+        function initRealtimeUpdates() {
+            if (unsubscribe) unsubscribe();
+            const q = query(itemsCol, where("user", "==", window.currentUser), orderBy("createdAt", "asc"));
+            unsubscribe = onSnapshot(q, (snapshot) => {
+                window.items = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                render(); 
+            });
+        }
+
+        window.addItem = async () => {
+            const nameInput = document.getElementById('item-name');
+            const priceInput = document.getElementById('item-price');
+            if (nameInput.value) {
+                await addDoc(itemsCol, { 
+                    name: nameInput.value, 
+                    price: parseInt(priceInput.value) || 0,
+                    currency: window.inputCurrency,
+                    checked: false, 
+                    user: window.currentUser,
+                    createdAt: Date.now() 
+                });
+                nameInput.value = ''; priceInput.value = '';
+            }
+        };
+
+        window.updatePrice = async (id, newPrice) => {
+            await updateDoc(doc(db, "shoppingItems", id), { price: parseInt(newPrice) || 0 });
+        };
+
+        window.changeItemCurrency = async (id, currentCurrency) => {
+            const newCurrency = currentCurrency === 'TWD' ? 'JPY' : 'TWD';
+            await updateDoc(doc(db, "shoppingItems", id), { currency: newCurrency });
+        };
+
+        window.toggleCheck = async (id, currentStatus) => {
+            await updateDoc(doc(db, "shoppingItems", id), { checked: !currentStatus });
+        };
+
+        window.removeItem = async (id) => {
+            if(confirm('確定移除？')) await deleteDoc(doc(db, "shoppingItems", id));
+        };
+
+        window.addEventListener('DOMContentLoaded', () => switchUser(window.currentUser));
+    </script>
+    <style>
+        :root { --bg: #0a0a0a; --card: #171717; --text: #ffffff; --accent: #818cf8; --nav: #1f1f1f; }
+        body { background-color: var(--bg); color: var(--text); transition: 0.3s; min-height: 100vh; font-family: sans-serif; }
+        
+        .gray-header { background-color: var(--nav); padding: 16px 10px; border-bottom: 1px solid #2a2a2a; }
+
+        /* 卡片樣式優化 */
+        .card { background-color: var(--card); border-radius: 1.25rem; border: 1px solid #2a2a2a; transition: all 0.2s ease; }
+        .card-checked { border-color: var(--accent); border-left: 6px solid var(--accent); background-color: #1e1e2e; }
+
+        .tab-btn { flex: 1; padding: 14px; font-weight: bold; opacity: 0.4; border-bottom: 3px solid transparent; transition: 0.3s; color: white; }
+        .tab-btn.active { opacity: 1; border-bottom-color: var(--accent); color: var(--accent); }
+        
+        .checkbox-custom { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #444; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .checkbox-custom.checked { background: var(--accent); border-color: var(--accent); }
+        .checkbox-custom.checked::after { content: '✓'; color: white; font-size: 14px; font-weight: bold; }
+        
+        .price-input { background: #262626; border-radius: 8px; padding: 4px 8px; width: 100px; text-align: right; outline: none; border: 1px solid #333; color: white; font-weight: bold; font-family: monospace; }
+        .price-input:focus { border-color: var(--accent); }
+        
+        .curr-swap-btn { font-size: 10px; background: #333; color: var(--accent); padding: 2px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #444; transition: 0.2s; }
+        .curr-swap-btn:active { transform: scale(0.9); }
+
+        .fixed-bottom { position: fixed; bottom: 0; left: 0; right: 0; background: #141414; border-top: 1px solid #2a2a2a; padding-bottom: env(safe-area-inset-bottom); z-index: 100; }
+        .hidden { display: none !important; }
+    </style>
 </head>
-<body>
-<p class="p1"><span class="s1">&lt;!DOCTYPE html&gt;</span></p>
-<p class="p1"><span class="s1">&lt;html lang="zh-TW"&gt;</span></p>
-<p class="p1"><span class="s1">&lt;head&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;meta charset="UTF-8"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;title&gt;日本購物隨身帳 Cloud v8&lt;/title&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;script src="https://cdn.tailwindcss.com"&gt;&lt;/script&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;script type="module"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const firebaseConfig = {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>apiKey: "AIzaSyDyZydHIJ__7bzXDt4fCSOuyAW3tdXRf-E",</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>authDomain: "japan-shopping-list.firebaseapp.com",</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>projectId: "japan-shopping-list",</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>storageBucket: "japan-shopping-list.firebasestorage.app",</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>messagingSenderId: "254468058112",</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>appId: "1:254468058112:web:aa2a67ce83b5ae0300bce5",</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>measurementId: "G-54CDBWK2M2"</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const app = initializeApp(firebaseConfig);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const db = getFirestore(app);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const itemsCol = collection(db, "shoppingItems");</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>window.currentUser = localStorage.getItem('active_user') || '我';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>window.inputCurrency = 'TWD';<span class="Apple-converted-space"> </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>window.displayCurrency = 'JPY';<span class="Apple-converted-space"> </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let unsubscribe = null;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>window.switchUser = (user) =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>window.currentUser = user;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>localStorage.setItem('active_user', user);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>document.querySelectorAll('.user-btn').forEach(btn =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>const isActive = btn.dataset.user === user;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>btn.className = `user-btn px-8 py-2 rounded-full border transition-all font-bold shadow-md ${isActive ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-[#333] text-gray-400 border-[#444]'}`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>initRealtimeUpdates();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>window.toggleInputCurrency = () =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>window.inputCurrency = window.inputCurrency === 'TWD' ? 'JPY' : 'TWD';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>document.getElementById('currency-toggle-btn').innerText = window.inputCurrency;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>window.toggleDisplayCurrency = () =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>window.displayCurrency = window.displayCurrency === 'JPY' ? 'TWD' : 'JPY';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>render();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function initRealtimeUpdates() {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (unsubscribe) unsubscribe();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const q = query(itemsCol, where("user", "==", window.currentUser), orderBy("createdAt", "asc"));</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>unsubscribe = onSnapshot(q, (snapshot) =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>window.items = snapshot.docs.map(d =&gt; ({ id: d.id, ...d.data() }));</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>render();<span class="Apple-converted-space"> </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>window.addItem = async () =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const nameInput = document.getElementById('item-name');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const priceInput = document.getElementById('item-price');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (nameInput.value) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>await addDoc(itemsCol, {<span class="Apple-converted-space"> </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>name: nameInput.value,<span class="Apple-converted-space"> </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>price: parseInt(priceInput.value) || 0,</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>currency: window.inputCurrency,</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>checked: false,<span class="Apple-converted-space"> </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>user: window.currentUser,</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>createdAt: Date.now()<span class="Apple-converted-space"> </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>nameInput.value = ''; priceInput.value = '';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>window.updatePrice = async (id, newPrice) =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>await updateDoc(doc(db, "shoppingItems", id), { price: parseInt(newPrice) || 0 });</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>window.changeItemCurrency = async (id, currentCurrency) =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const newCurrency = currentCurrency === 'TWD' ? 'JPY' : 'TWD';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>await updateDoc(doc(db, "shoppingItems", id), { currency: newCurrency });</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>window.toggleCheck = async (id, currentStatus) =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>await updateDoc(doc(db, "shoppingItems", id), { checked: !currentStatus });</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>window.removeItem = async (id) =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if(confirm('確定移除？')) await deleteDoc(doc(db, "shoppingItems", id));</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>window.addEventListener('DOMContentLoaded', () =&gt; switchUser(window.currentUser));</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/script&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;style&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>:root { --bg: #0a0a0a; --card: #171717; --text: #ffffff; --accent: #818cf8; --nav: #1f1f1f; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>body { background-color: var(--bg); color: var(--text); transition: 0.3s; min-height: 100vh; font-family: sans-serif; }</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">        </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.gray-header { background-color: var(--nav); padding: 16px 10px; border-bottom: 1px solid #2a2a2a; }</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>/* 卡片樣式優化 */</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.card { background-color: var(--card); border-radius: 1.25rem; border: 1px solid #2a2a2a; transition: all 0.2s ease; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.card-checked { border-color: var(--accent); border-left: 6px solid var(--accent); background-color: #1e1e2e; }</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.tab-btn { flex: 1; padding: 14px; font-weight: bold; opacity: 0.4; border-bottom: 3px solid transparent; transition: 0.3s; color: white; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.tab-btn.active { opacity: 1; border-bottom-color: var(--accent); color: var(--accent); }</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">        </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.checkbox-custom { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #444; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.checkbox-custom.checked { background: var(--accent); border-color: var(--accent); }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.checkbox-custom.checked::after { content: '✓'; color: white; font-size: 14px; font-weight: bold; }</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">        </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.price-input { background: #262626; border-radius: 8px; padding: 4px 8px; width: 100px; text-align: right; outline: none; border: 1px solid #333; color: white; font-weight: bold; font-family: monospace; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.price-input:focus { border-color: var(--accent); }</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">        </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.curr-swap-btn { font-size: 10px; background: #333; color: var(--accent); padding: 2px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #444; transition: 0.2s; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.curr-swap-btn:active { transform: scale(0.9); }</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.fixed-bottom { position: fixed; bottom: 0; left: 0; right: 0; background: #141414; border-top: 1px solid #2a2a2a; padding-bottom: env(safe-area-inset-bottom); z-index: 100; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.hidden { display: none !important; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/style&gt;</span></p>
-<p class="p1"><span class="s1">&lt;/head&gt;</span></p>
-<p class="p1"><span class="s1">&lt;body class="pb-80"&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="gray-header sticky top-0 z-50 shadow-md"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div class="flex gap-4 justify-center"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;button onclick="switchUser('我')" data-user="我" class="user-btn"&gt;我&lt;/button&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;button onclick="switchUser('Mina')" data-user="Mina" class="user-btn"&gt;Mina&lt;/button&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;nav class="flex bg-[#141414] sticky top-[65px] z-40 border-b border-[#2a2a2a]"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;button onclick="switchPage('list')" id="tab-list" class="tab-btn active"&gt;📝 願望清單&lt;/button&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;button onclick="switchPage('calc')" id="tab-calc" class="tab-btn"&gt;💰 統計結帳&lt;/button&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/nav&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="max-w-md mx-auto p-4"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div id="page-list"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div id="wish-list-container" class="space-y-4 mt-2"&gt;連線中...&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div id="page-calc" class="hidden"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div class="flex justify-end mb-2"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;button onclick="toggleDisplayCurrency()" class="text-[10px] bg-indigo-900/30 text-indigo-300 px-3 py-1 rounded-full font-bold border border-indigo-500/30"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>🔄 切換主幣別：&lt;span id="display-curr-label"&gt;JPY&lt;/span&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;/button&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div class="card p-6 mb-6 shadow-xl bg-gradient-to-br from-[#1e1e2e] to-[#0f172a] !text-white border-none"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div class="flex justify-between items-end"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;div class="text-xs opacity-70 uppercase font-bold tracking-widest"&gt;&lt;span id="main-curr-name"&gt;JPY&lt;/span&gt; Total&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;div class="text-4xl font-mono font-bold"&gt;&lt;span id="symbol-main"&gt;¥&lt;/span&gt; &lt;span id="total-main"&gt;0&lt;/span&gt;&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;div class="text-right"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;div class="text-xs opacity-70"&gt;&lt;span id="sub-curr-name"&gt;TWD&lt;/span&gt;&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;div class="text-xl font-mono font-semibold"&gt;&lt;span id="symbol-sub"&gt;$&lt;/span&gt; &lt;span id="total-sub"&gt;0&lt;/span&gt;&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div id="calc-list-container" class="card p-4 space-y-3"&gt;&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="fixed-bottom p-4"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div class="max-w-md mx-auto space-y-4"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div class="flex gap-2 items-center"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;input id="item-name" type="text" placeholder="品名" class="flex-[1.5] p-4 rounded-2xl bg-[#262626] outline-none text-white focus:ring-1 ring-indigo-400"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div class="flex flex-[2] bg-[#262626] rounded-2xl overflow-hidden items-center border border-[#333] focus-within:border-indigo-400"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;input id="item-price" type="number" placeholder="金額" class="w-full p-4 bg-transparent outline-none text-right font-mono text-white"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;button onclick="toggleInputCurrency()" id="currency-toggle-btn" class="px-5 py-4 font-black text-indigo-400 border-l border-[#333] hover:bg-[#333]"&gt;TWD&lt;/button&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;button onclick="addItem()" class="bg-indigo-600 text-white p-4 rounded-2xl font-bold active:scale-95 transition-transform shadow-lg shadow-indigo-900/20"&gt;＋&lt;/button&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div class="flex justify-between items-center pt-2 border-t border-[#2a2a2a]"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div class="flex items-center gap-2"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;span class="text-[10px] font-bold text-indigo-400 uppercase"&gt;Rate 1 JPY =&lt;/span&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;input id="rate-input" type="number" step="0.0001" value="0.22" onchange="render()" class="w-16 bg-transparent border-b border-indigo-500/50 font-mono text-center outline-none text-white"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;span class="text-[10px] text-gray-500"&gt;TWD&lt;/span&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div class="text-[10px] opacity-20 font-mono"&gt;v8.0 CLOUD SYNC&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;script&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>window.items = [];</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function switchPage(page) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>document.getElementById('page-list').classList.toggle('hidden', page !== 'list');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>document.getElementById('page-calc').classList.toggle('hidden', page !== 'calc');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>document.getElementById('tab-list').className = `tab-btn ${page === 'list' ? 'active' : ''}`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>document.getElementById('tab-calc').className = `tab-btn ${page === 'calc' ? 'active' : ''}`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">        </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function render() {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const wishList = document.getElementById('wish-list-container');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const calcList = document.getElementById('calc-list-container');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const rate = parseFloat(document.getElementById('rate-input').value) || 0.22;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>wishList.innerHTML = ''; calcList.innerHTML = '';</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">            </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>let sumJPY = 0; let sumTWD = 0;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>window.items.forEach((item) =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>let twd, jpy;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>const isJPY = item.currency === 'JPY';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>if (isJPY) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>jpy = item.price || 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>twd = Math.round(jpy * rate);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>} else {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>twd = item.price || 0;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>jpy = Math.round(twd / rate);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>const itemDiv = document.createElement('div');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>itemDiv.className = `card p-5 flex justify-between items-center ${item.checked ? 'card-checked' : ''}`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>itemDiv.innerHTML = `</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;div class="flex items-center gap-4 overflow-hidden"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;div onclick="toggleCheck('${item.id}', ${item.checked})" class="checkbox-custom ${item.checked ? 'checked' : ''}"&gt;&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;div class="truncate"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                            </span>&lt;div class="font-bold text-lg text-white"&gt;${item.name}&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                            </span>&lt;div class="text-[11px] font-mono text-gray-400 mt-0.5"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                                </span>${isJPY ? `¥${jpy.toLocaleString()} → $${twd.toLocaleString()}` : `$${twd.toLocaleString()} → ¥${jpy.toLocaleString()}`}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                            </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;div class="flex items-center gap-3"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;div class="text-right"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                            </span>&lt;input type="number" value="${item.price}" onchange="updatePrice('${item.id}', this.value)" class="price-input"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                            </span>&lt;div class="mt-1.5"&gt;&lt;button onclick="changeItemCurrency('${item.id}', '${item.currency}')" class="curr-swap-btn"&gt;${item.currency || 'TWD'}&lt;/button&gt;&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;button onclick="removeItem('${item.id}')" class="text-gray-600 hover:text-red-500 px-1 text-lg"&gt;✕&lt;/button&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>wishList.appendChild(itemDiv);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>if (item.checked) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>sumJPY += jpy; sumTWD += twd;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>const mainVal = window.displayCurrency === 'JPY' ? jpy : twd;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>const subVal = window.displayCurrency === 'JPY' ? twd : jpy;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>calcList.innerHTML += `</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;div class="flex justify-between items-center border-b border-[#2a2a2a] pb-3 last:border-0"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                            </span>&lt;span class="font-medium text-gray-200"&gt;${item.name}&lt;/span&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                            </span>&lt;div class="text-right"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                                </span>&lt;div class="font-mono text-indigo-400 font-bold"&gt;${window.displayCurrency === 'JPY' ? '¥' : '$'}${mainVal.toLocaleString()}&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                                </span>&lt;div class="text-[10px] opacity-40 font-mono"&gt;${window.displayCurrency === 'JPY' ? '$' : '¥'}${subVal.toLocaleString()}&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                            </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;/div&gt;`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>});</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const isMainJPY = window.displayCurrency === 'JPY';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>document.getElementById('display-curr-label').innerText = window.displayCurrency;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>document.getElementById('main-curr-name').innerText = window.displayCurrency;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>document.getElementById('sub-curr-name').innerText = isMainJPY ? 'TWD' : 'JPY';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>document.getElementById('total-main').innerText = isMainJPY ? sumJPY.toLocaleString() : sumTWD.toLocaleString();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>document.getElementById('total-sub').innerText = isMainJPY ? sumTWD.toLocaleString() : sumJPY.toLocaleString();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>document.getElementById('symbol-main').innerText = isMainJPY ? '¥' : '$';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>document.getElementById('symbol-sub').innerText = isMainJPY ? '$' : '¥';</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (calcList.innerHTML === '') calcList.innerHTML = '&lt;div class="text-center py-10 opacity-20 italic"&gt;尚未勾選品項&lt;/div&gt;';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/script&gt;</span></p>
-<p class="p1"><span class="s1">&lt;/body&gt;</span></p>
-<p class="p1"><span class="s1">&lt;/html&gt;</span></p>
+<body class="pb-80">
+
+    <div class="gray-header sticky top-0 z-50 shadow-md">
+        <div class="flex gap-4 justify-center">
+            <button onclick="switchUser('我')" data-user="我" class="user-btn">我</button>
+            <button onclick="switchUser('Mina')" data-user="Mina" class="user-btn">Mina</button>
+        </div>
+    </div>
+
+    <nav class="flex bg-[#141414] sticky top-[65px] z-40 border-b border-[#2a2a2a]">
+        <button onclick="switchPage('list')" id="tab-list" class="tab-btn active">📝 願望清單</button>
+        <button onclick="switchPage('calc')" id="tab-calc" class="tab-btn">💰 統計結帳</button>
+    </nav>
+
+    <div class="max-w-md mx-auto p-4">
+        <div id="page-list">
+            <div id="wish-list-container" class="space-y-4 mt-2">連線中...</div>
+        </div>
+
+        <div id="page-calc" class="hidden">
+            <div class="flex justify-end mb-2">
+                <button onclick="toggleDisplayCurrency()" class="text-[10px] bg-indigo-900/30 text-indigo-300 px-3 py-1 rounded-full font-bold border border-indigo-500/30">
+                    🔄 切換主幣別：<span id="display-curr-label">JPY</span>
+                </button>
+            </div>
+            <div class="card p-6 mb-6 shadow-xl bg-gradient-to-br from-[#1e1e2e] to-[#0f172a] !text-white border-none">
+                <div class="flex justify-between items-end">
+                    <div>
+                        <div class="text-xs opacity-70 uppercase font-bold tracking-widest"><span id="main-curr-name">JPY</span> Total</div>
+                        <div class="text-4xl font-mono font-bold"><span id="symbol-main">¥</span> <span id="total-main">0</span></div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs opacity-70"><span id="sub-curr-name">TWD</span></div>
+                        <div class="text-xl font-mono font-semibold"><span id="symbol-sub">$</span> <span id="total-sub">0</span></div>
+                    </div>
+                </div>
+            </div>
+            <div id="calc-list-container" class="card p-4 space-y-3"></div>
+        </div>
+    </div>
+
+    <div class="fixed-bottom p-4">
+        <div class="max-w-md mx-auto space-y-4">
+            <div class="flex gap-2 items-center">
+                <input id="item-name" type="text" placeholder="品名" class="flex-[1.5] p-4 rounded-2xl bg-[#262626] outline-none text-white focus:ring-1 ring-indigo-400">
+                <div class="flex flex-[2] bg-[#262626] rounded-2xl overflow-hidden items-center border border-[#333] focus-within:border-indigo-400">
+                    <input id="item-price" type="number" placeholder="金額" class="w-full p-4 bg-transparent outline-none text-right font-mono text-white">
+                    <button onclick="toggleInputCurrency()" id="currency-toggle-btn" class="px-5 py-4 font-black text-indigo-400 border-l border-[#333] hover:bg-[#333]">TWD</button>
+                </div>
+                <button onclick="addItem()" class="bg-indigo-600 text-white p-4 rounded-2xl font-bold active:scale-95 transition-transform shadow-lg shadow-indigo-900/20">＋</button>
+            </div>
+            <div class="flex justify-between items-center pt-2 border-t border-[#2a2a2a]">
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold text-indigo-400 uppercase">Rate 1 JPY =</span>
+                    <input id="rate-input" type="number" step="0.0001" value="0.22" onchange="render()" class="w-16 bg-transparent border-b border-indigo-500/50 font-mono text-center outline-none text-white">
+                    <span class="text-[10px] text-gray-500">TWD</span>
+                </div>
+                <div class="text-[10px] opacity-20 font-mono">v8.0 CLOUD SYNC</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.items = [];
+        function switchPage(page) {
+            document.getElementById('page-list').classList.toggle('hidden', page !== 'list');
+            document.getElementById('page-calc').classList.toggle('hidden', page !== 'calc');
+            document.getElementById('tab-list').className = `tab-btn ${page === 'list' ? 'active' : ''}`;
+            document.getElementById('tab-calc').className = `tab-btn ${page === 'calc' ? 'active' : ''}`;
+        }
+        
+        function render() {
+            const wishList = document.getElementById('wish-list-container');
+            const calcList = document.getElementById('calc-list-container');
+            const rate = parseFloat(document.getElementById('rate-input').value) || 0.22;
+            wishList.innerHTML = ''; calcList.innerHTML = '';
+            
+            let sumJPY = 0; let sumTWD = 0;
+
+            window.items.forEach((item) => {
+                let twd, jpy;
+                const isJPY = item.currency === 'JPY';
+                if (isJPY) {
+                    jpy = item.price || 0;
+                    twd = Math.round(jpy * rate);
+                } else {
+                    twd = item.price || 0;
+                    jpy = Math.round(twd / rate);
+                }
+
+                const itemDiv = document.createElement('div');
+                itemDiv.className = `card p-5 flex justify-between items-center ${item.checked ? 'card-checked' : ''}`;
+                itemDiv.innerHTML = `
+                    <div class="flex items-center gap-4 overflow-hidden">
+                        <div onclick="toggleCheck('${item.id}', ${item.checked})" class="checkbox-custom ${item.checked ? 'checked' : ''}"></div>
+                        <div class="truncate">
+                            <div class="font-bold text-lg text-white">${item.name}</div>
+                            <div class="text-[11px] font-mono text-gray-400 mt-0.5">
+                                ${isJPY ? `¥${jpy.toLocaleString()} → $${twd.toLocaleString()}` : `$${twd.toLocaleString()} → ¥${jpy.toLocaleString()}`}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="text-right">
+                            <input type="number" value="${item.price}" onchange="updatePrice('${item.id}', this.value)" class="price-input">
+                            <div class="mt-1.5"><button onclick="changeItemCurrency('${item.id}', '${item.currency}')" class="curr-swap-btn">${item.currency || 'TWD'}</button></div>
+                        </div>
+                        <button onclick="removeItem('${item.id}')" class="text-gray-600 hover:text-red-500 px-1 text-lg">✕</button>
+                    </div>`;
+                wishList.appendChild(itemDiv);
+
+                if (item.checked) {
+                    sumJPY += jpy; sumTWD += twd;
+                    const mainVal = window.displayCurrency === 'JPY' ? jpy : twd;
+                    const subVal = window.displayCurrency === 'JPY' ? twd : jpy;
+                    calcList.innerHTML += `
+                        <div class="flex justify-between items-center border-b border-[#2a2a2a] pb-3 last:border-0">
+                            <span class="font-medium text-gray-200">${item.name}</span>
+                            <div class="text-right">
+                                <div class="font-mono text-indigo-400 font-bold">${window.displayCurrency === 'JPY' ? '¥' : '$'}${mainVal.toLocaleString()}</div>
+                                <div class="text-[10px] opacity-40 font-mono">${window.displayCurrency === 'JPY' ? '$' : '¥'}${subVal.toLocaleString()}</div>
+                            </div>
+                        </div>`;
+                }
+            });
+
+            const isMainJPY = window.displayCurrency === 'JPY';
+            document.getElementById('display-curr-label').innerText = window.displayCurrency;
+            document.getElementById('main-curr-name').innerText = window.displayCurrency;
+            document.getElementById('sub-curr-name').innerText = isMainJPY ? 'TWD' : 'JPY';
+            document.getElementById('total-main').innerText = isMainJPY ? sumJPY.toLocaleString() : sumTWD.toLocaleString();
+            document.getElementById('total-sub').innerText = isMainJPY ? sumTWD.toLocaleString() : sumJPY.toLocaleString();
+            document.getElementById('symbol-main').innerText = isMainJPY ? '¥' : '$';
+            document.getElementById('symbol-sub').innerText = isMainJPY ? '$' : '¥';
+
+            if (calcList.innerHTML === '') calcList.innerHTML = '<div class="text-center py-10 opacity-20 italic">尚未勾選品項</div>';
+        }
+    </script>
 </body>
 </html>
